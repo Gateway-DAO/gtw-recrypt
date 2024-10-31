@@ -1,0 +1,3 @@
+[submodule "recrypt"]
+	path = recrypt
+	url = git@github.com:gateway-dao/recrypt-rs
