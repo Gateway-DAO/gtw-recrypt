@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use compute::grpc::rencrypt_operator::{
+use recrypt_compute::grpc::rencrypt_operator::{
     proto::{self, rencrypt_operator_server::RencryptOperatorServer},
     Operator,
 };

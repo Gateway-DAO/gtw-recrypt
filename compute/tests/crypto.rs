@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use compute::crypto::{
+    use recrypt_compute::crypto::{
         encryption::{
             aes::AesKey,
             recrypt::{self, decrypt_to_aes_key, transform},

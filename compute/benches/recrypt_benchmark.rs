@@ -1,6 +1,6 @@
-use compute::crypto::{encryption::recrypt, signature::ed25519::new_signing_keypair};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use rand::Rng;
+use recrypt_compute::crypto::{encryption::recrypt, signature::ed25519::new_signing_keypair};
 
 // const SIZES: [usize; 7] =
 

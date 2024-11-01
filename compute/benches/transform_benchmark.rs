@@ -1,8 +1,8 @@
-use compute::crypto::{
+use criterion::{criterion_group, criterion_main, Criterion};
+use recrypt_compute::crypto::{
     encryption::{aes, recrypt},
     signature::ed25519::new_signing_keypair,
 };
-use criterion::{criterion_group, criterion_main, Criterion};
 
 fn transform(c: &mut Criterion) {
     let msg = "wHat's A kInG 👑 To a God 🔥";
