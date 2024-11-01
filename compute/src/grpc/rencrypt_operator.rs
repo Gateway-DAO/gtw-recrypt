@@ -1,84 +1,99 @@
+use crate::crypto::encryption::recrypt::{
+    decrypt, new_transform_key, pubkey_from_buffer, transform,
+};
+use crate::crypto::signature::ed25519::*;
 use base64::Engine;
+use proto::GenerateTransformKeyRequest;
+use proto::{
+    rencrypt_operator_server::RencryptOperator, DecryptRequest, Empty, EncodedKeyPair,
+    EncodedPayload, EncryptReply, EncryptRequest, TransformRequest,
+};
 use recrypt::{
     api::Hashable,
-    api_480::{EncryptedValue, PrivateKey},
+    api_480::{EncryptedValue, PrivateKey, TransformKey},
 };
 use tonic::{Request, Response, Status};
 
-#[allow(unused_macros)]
-macro_rules! encode_base64 {
-    ($data:expr) => {
-        base64::engine::general_purpose::STANDARD.encode($data)
-    };
-}
-
-#[allow(unused_macros)]
-macro_rules! decode_base64 {
-    ($data:expr) => {
-        base64::engine::general_purpose::STANDARD.decode($data)
-    };
-}
-
-use proto::{
-    rencrypt_operator_server::RencryptOperator, DecryptRequest, DecryptedReply,
-    GenerateKeyPairRequest, KeyPairReply, RencryptReply, RencryptRequest,
-};
 pub mod proto {
     tonic::include_proto!("rencrypt");
     pub const _FILE_DESCRIPTOR_SET: &[u8] =
         tonic::include_file_descriptor_set!("rencryptservice_descriptor");
 }
 
+macro_rules! encode64 {
+    ($e:expr) => {
+        base64::engine::general_purpose::STANDARD.encode($e)
+    };
+}
+
+macro_rules! decode64 {
+    ($e:expr) => {
+        base64::engine::general_purpose::STANDARD.decode($e)
+    };
+}
+
 #[derive(Default, Debug)]
 pub struct Operator {}
+
+static _SIGNING_KEYPAIR: once_cell::sync::Lazy<
+    std::sync::Arc<recrypt::internal::ed25519::SigningKeypair>,
+> = once_cell::sync::Lazy::new(|| {
+    std::sync::Arc::new(crate::crypto::signature::ed25519::new_signing_keypair())
+});
 
 #[tonic::async_trait]
 impl RencryptOperator for Operator {
     async fn generate_key_pair(
         &self,
-        _req: Request<GenerateKeyPairRequest>,
-    ) -> Result<Response<KeyPairReply>, Status> {
+        _req: Request<Empty>,
+    ) -> Result<Response<EncodedKeyPair>, Status> {
         let (privkey, pubkey) = crate::crypto::encryption::recrypt::new_encryption_keypair();
 
-        let reply = KeyPairReply {
-            pubkey_base64: base64::engine::general_purpose::STANDARD.encode(pubkey.to_bytes()),
-            privkey_base64: base64::engine::general_purpose::STANDARD.encode(privkey.to_bytes()),
+        let reply = EncodedKeyPair {
+            pubkey_base64: encode64!(pubkey.to_bytes()),
+            privkey_base64: encode64!(privkey.to_bytes()),
         };
 
         Ok(Response::new(reply))
     }
 
-    async fn rencrypt(
+    async fn generate_transform_key(
         &self,
-        req: Request<RencryptRequest>,
-    ) -> Result<Response<RencryptReply>, Status> {
+        req: Request<GenerateTransformKeyRequest>,
+    ) -> Result<Response<EncodedPayload>, Status> {
         let req_params = req.into_inner();
 
-        let encrypted_value_encoding = req_params.cipher_base64;
+        let from_privkey_serialized = decode64!(req_params.from_privkey_base64).unwrap();
+        let from_privkey = PrivateKey::new_from_slice(from_privkey_serialized.as_slice()).unwrap();
+        let to_pubkey_serialized = decode64!(req_params.to_pubkey_base64).unwrap();
+        let to_pubkey = pubkey_from_buffer(to_pubkey_serialized).unwrap();
 
-        let encrypted_value_buffer = base64::engine::general_purpose::STANDARD
-            .decode(encrypted_value_encoding)
-            .unwrap();
-        let encrypted_value = EncryptedValue::from_bytes(encrypted_value_buffer).unwrap();
+        let transform_key = new_transform_key(&from_privkey, &to_pubkey, &_SIGNING_KEYPAIR);
 
-        let transform_key_encoding = req_params.transformkey_base64;
-        let transform_key_buffer =
-            match base64::engine::general_purpose::STANDARD.decode(transform_key_encoding) {
-                Ok(key) => key,
-                Err(err) => return Err(Status::from_error(Box::new(err))),
-            };
-        let transform_key = recrypt::api_480::TransformKey::from_bytes(&transform_key_buffer);
+        Ok(Response::new(EncodedPayload {
+            payload_base64: base64::engine::general_purpose::STANDARD
+                .encode(transform_key.to_bytes()),
+        }))
+    }
 
-        let signing_keys = crate::crypto::signature::ed25519::new_signing_keypair();
+    async fn transform(
+        &self,
+        req: Request<TransformRequest>,
+    ) -> Result<Response<EncodedPayload>, Status> {
+        let req_params = req.into_inner();
 
-        let transformed_data = crate::crypto::encryption::recrypt::transform(
-            encrypted_value,
-            transform_key,
-            &signing_keys,
-        );
+        let encryption_encoding = decode64!(req_params.cipher_base64).unwrap();
+        let encryption = EncryptedValue::from_bytes(encryption_encoding).unwrap();
 
-        Ok(Response::new(RencryptReply {
-            transformed_base64: base64::engine::general_purpose::STANDARD
+        let transformkey_encoded = decode64!(req_params.transformkey_base64).unwrap();
+        let transformkey_decoded = TransformKey::from_bytes(&transformkey_encoded);
+
+        let signing_keypair = new_signing_keypair();
+        let transformed_data =
+            transform(encryption.clone(), transformkey_decoded, &signing_keypair);
+
+        Ok(Response::new(EncodedPayload {
+            payload_base64: base64::engine::general_purpose::STANDARD
                 .encode(transformed_data.as_bytes()),
         }))
     }
@@ -86,99 +101,52 @@ impl RencryptOperator for Operator {
     async fn decrypt(
         &self,
         req: Request<DecryptRequest>,
-    ) -> Result<Response<DecryptedReply>, Status> {
+    ) -> Result<Response<EncodedPayload>, Status> {
         let req_params = req.into_inner();
 
-        let encryption_buffer = base64::engine::general_purpose::STANDARD
-            .decode(req_params.cipher_base64)
+        let privkey_encoding = req_params.privkey_base64;
+        let transformed_encoding = req_params.cipher_base64;
+        let data_len = req_params.length;
+
+        let privkey_serialized = base64::engine::general_purpose::STANDARD
+            .decode(privkey_encoding)
             .unwrap();
-        let encryption = EncryptedValue::from_bytes(encryption_buffer).unwrap();
+        let privkey = PrivateKey::new_from_slice(privkey_serialized.as_slice()).unwrap();
 
-        let privkey = PrivateKey::new_from_slice(
-            base64::engine::general_purpose::STANDARD
-                .decode(req_params.privkey_base64)
-                .unwrap()
-                .as_slice(),
-        )
-        .unwrap();
-
-        Ok(Response::new(DecryptedReply {
-            payload: String::from_utf8(
-                crate::crypto::encryption::recrypt::decrypt(
-                    &encryption,
-                    &privkey,
-                    req_params.decryption_length as usize,
-                )
-                .unwrap(),
-            )
-            .unwrap(),
-        }))
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use base64::Engine;
-    use recrypt::api_480::{EncryptedValue, PrivateKey, TransformKey};
-
-    #[test]
-    fn generate_test_transform_key() {
-        let (privkey, pubkey) = crate::crypto::encryption::recrypt::new_encryption_keypair();
-        let signing_keypair = crate::crypto::signature::ed25519::new_signing_keypair();
-
-        let data = "something random";
-        let encryption =
-            crate::crypto::encryption::recrypt::encrypt(data.as_bytes(), &pubkey, &signing_keypair)
-                .unwrap();
-
-        let (privkey2, pubkey2) = crate::crypto::encryption::recrypt::new_encryption_keypair();
-
-        let transformkey = crate::crypto::encryption::recrypt::new_transform_key(
-            &privkey,
-            &pubkey2,
-            &signing_keypair,
-        );
-
-        let transformkey_encoded = transformkey.to_bytes();
-        let transformkey_decoded = TransformKey::from_bytes(&transformkey_encoded);
-
-        use crate::crypto::encryption::recrypt::transform;
-        let transformed_data =
-            transform(encryption.clone(), transformkey_decoded, &signing_keypair);
-
-        let unencryption =
-            crate::crypto::encryption::recrypt::decrypt(&transformed_data, &privkey2, data.len())
-                .unwrap();
-
-        assert_eq!(String::from_utf8(unencryption).unwrap(), data);
-
-        // print grpc-relevant data
-        println!("===data length===\n{}", data.len());
-        println!();
-        println!(
-            "===encryption===\n{}",
-            encode_base64!(encryption.as_bytes())
-        );
-        println!();
-        println!(
-            "===transformation key===\n{}",
-            encode_base64!(transformkey_encoded)
-        );
-        println!();
-        println!("===decryption key===\n{}", encode_base64!(privkey2.bytes()));
-        println!();
+        let transformed_serialized = base64::engine::general_purpose::STANDARD
+            .decode(transformed_encoding)
+            .unwrap();
+        let transformed_data = EncryptedValue::from_bytes(transformed_serialized).unwrap();
 
         // attempt to reconstruct data from encodings
-        let reconstruct_privkey = PrivateKey::new_from_slice(privkey2.bytes()).unwrap();
-        let reconstruct_transformed =
-            EncryptedValue::from_bytes(transformed_data.as_bytes()).unwrap();
 
-        let decryption = crate::crypto::encryption::recrypt::decrypt(
-            &reconstruct_transformed,
-            &reconstruct_privkey,
-            data.len(),
-        )
-        .unwrap();
-        assert_eq!(String::from_utf8(decryption).unwrap(), data);
+        let decryption = decrypt(&transformed_data, &privkey, data_len as usize).unwrap();
+        Ok(Response::new(EncodedPayload {
+            payload_base64: encode64!(decryption),
+        }))
+    }
+
+    async fn encrypt(
+        &self,
+        _req: Request<EncryptRequest>,
+    ) -> Result<Response<EncryptReply>, Status> {
+        let req = _req.into_inner();
+        use crate::crypto::encryption::recrypt::*;
+
+        let pubkey = base64::engine::general_purpose::STANDARD
+            .decode(req.pubkey_base64)
+            .unwrap();
+        let pubkey = pubkey_from_buffer(pubkey).unwrap();
+
+        let data = req.data.as_str();
+
+        let encryption = encrypt(data.as_bytes(), &pubkey, &_SIGNING_KEYPAIR).unwrap();
+
+        println!("Data length: {}", data.chars().count());
+
+        Ok(Response::new(EncryptReply {
+            cipher_base64: encode64!(encryption.as_bytes()),
+            length: data.len() as f32,
+        }))
     }
 }

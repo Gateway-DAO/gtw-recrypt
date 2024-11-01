@@ -10,6 +10,7 @@ aes-gcm = "0.10.3"
 base64 = "0.22.1"
 bincode = "1.3.3"
 gridiron = "0.10.0"
+once_cell = "1.20.2"
 prost = "0.13.3"
 recrypt = { path = "../recrypt" }
 serde = { version = "1.0.214", features = [
@@ -41,4 +42,4 @@ harness = false
 
 [[bin]]
 name = "server"
-path = "src/server.rs"
+path = "src/main.rs"

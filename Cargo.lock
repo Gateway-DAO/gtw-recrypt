@@ -1371,6 +1371,7 @@ dependencies = [
  "bincode",
  "criterion 0.5.1",
  "gridiron",
+ "once_cell",
  "prost",
  "rand",
  "recrypt",

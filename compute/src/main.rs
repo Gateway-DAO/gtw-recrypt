@@ -1,15 +1,16 @@
 use std::net::SocketAddr;
 
-use recrypt_compute::grpc::rencrypt_operator::{
-    proto::{self, rencrypt_operator_server::RencryptOperatorServer},
-    Operator,
-};
 use tonic::transport::Server;
+
+use recrypt_compute::grpc::{
+    proto::{self, rencrypt_operator_server::RencryptOperatorServer},
+    rencrypt_operator::Operator,
+};
 
 #[tokio::main]
 #[allow(dead_code)]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = "127.0.0.1:50051".parse::<SocketAddr>()?;
+    let addr = "0.0.0.0:50051".parse::<SocketAddr>()?;
     let service = Operator::default();
 
     // let reflection_builder = ReflectionBuilder;

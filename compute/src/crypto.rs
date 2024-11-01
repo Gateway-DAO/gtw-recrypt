@@ -95,6 +95,8 @@ pub mod encryption {
 
     pub mod recrypt {
         use super::aes::AesKey;
+        use base64::Engine;
+        use gridiron::fp_480::Monty;
         pub use recrypt::api_480::{
             PrivateKey as RecryptPrivateKey, PublicKey as RecryptPublicKey,
             SigningKeypair as Ed25519Keypair,
@@ -102,11 +104,38 @@ pub mod encryption {
         use recrypt::{
             api::RecryptErr,
             api_480::{CryptoOps, KeyGenOps, Plaintext, Recrypt480},
+            internal::bytedecoder::BytesDecoder,
         };
 
-        pub fn new_encryption_keypair() -> (RecryptPrivateKey, RecryptPublicKey) {
+        type EncryptionKeypair = (RecryptPrivateKey, RecryptPublicKey);
+
+        pub fn new_encryption_keypair() -> EncryptionKeypair {
             let recrypt = Recrypt480::new();
             recrypt.generate_key_pair().unwrap()
+        }
+
+        pub fn encryption_keypair_from_encoding(
+            privkey_enc: &str,
+            pubkey_enc: &str,
+        ) -> EncryptionKeypair {
+            let privkey_buff = base64::engine::general_purpose::STANDARD
+                .decode(privkey_enc)
+                .unwrap();
+            let pubkey_buff = base64::engine::general_purpose::STANDARD
+                .decode(pubkey_enc)
+                .unwrap();
+
+            return (
+                RecryptPrivateKey::new_from_slice(privkey_buff.as_slice()).unwrap(),
+                pubkey_from_buffer(pubkey_buff).unwrap(),
+            );
+        }
+
+        pub fn pubkey_from_buffer(pubkey_buff: Vec<u8>) -> Result<RecryptPublicKey, RecryptErr> {
+            RecryptPublicKey::new_from_slice((
+                &pubkey_buff[..Monty::ENCODED_SIZE_BYTES],
+                &pubkey_buff[Monty::ENCODED_SIZE_BYTES..],
+            ))
         }
 
         pub fn new_transform_key(
