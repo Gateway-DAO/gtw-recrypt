@@ -1,0 +1,45 @@
+// proto/rencrypt.proto
+
+syntax = "proto3";
+package rencrypt;
+
+service RencryptOperator {
+	rpc GenerateKeyPair(GenerateKeyPairRequest) returns (KeyPairReply);
+	rpc Rencrypt(RencryptRequest) returns (RencryptReply);
+	rpc Decrypt(DecryptRequest) returns (DecryptedReply);
+}
+
+message GenerateKeyPairRequest {}
+
+message KeyPairReply {
+	string pubkey_base64 = 1;
+	string privkey_base64 = 2;
+}
+
+message RencryptRequest {
+	string cipher_base64 = 1;
+	string transformkey_base64 = 2;
+}
+
+message RencryptReply {
+	string transformed_base64 = 1;
+}
+
+message TransformKeyRequest {
+	string delegator_pubkey_base64 = 1;
+	string delegator_privkey_base64 = 2;
+
+	string delegatee_pubkey_base64 = 3;
+}
+
+message TransformKey {}
+
+message DecryptRequest {
+	string privkey_base64 = 1;
+	string cipher_base64 = 2;
+	uint64 decryption_length = 3;
+}
+
+message DecryptedReply {
+	string payload = 1;
+}
