@@ -3,10 +3,11 @@ use crate::crypto::encryption::recrypt::{
 };
 use crate::crypto::signature::ed25519::*;
 use base64::Engine;
+use proto::recrypt_operator_server::RecryptOperator;
 use proto::GenerateTransformKeyRequest;
 use proto::{
-    rencrypt_operator_server::RencryptOperator, DecryptRequest, Empty, EncodedKeyPair,
-    EncodedPayload, EncryptReply, EncryptRequest, TransformRequest,
+    DecryptRequest, Empty, EncodedKeyPair, EncodedPayload, EncryptReply, EncryptRequest,
+    TransformRequest,
 };
 use recrypt::{
     api::Hashable,
@@ -15,9 +16,9 @@ use recrypt::{
 use tonic::{Request, Response, Status};
 
 pub mod proto {
-    tonic::include_proto!("rencrypt");
+    tonic::include_proto!("recrypt");
     pub const _FILE_DESCRIPTOR_SET: &[u8] =
-        tonic::include_file_descriptor_set!("rencryptservice_descriptor");
+        tonic::include_file_descriptor_set!("recryptservice_descriptor");
 }
 
 macro_rules! encode64 {
@@ -42,7 +43,7 @@ static _SIGNING_KEYPAIR: once_cell::sync::Lazy<
 });
 
 #[tonic::async_trait]
-impl RencryptOperator for Operator {
+impl RecryptOperator for Operator {
     async fn generate_key_pair(
         &self,
         _req: Request<Empty>,
@@ -104,23 +105,23 @@ impl RencryptOperator for Operator {
     ) -> Result<Response<EncodedPayload>, Status> {
         let req_params = req.into_inner();
 
+        // deserialize private key
         let privkey_encoding = req_params.privkey_base64;
-        let transformed_encoding = req_params.cipher_base64;
-        let data_len = req_params.length;
-
         let privkey_serialized = base64::engine::general_purpose::STANDARD
             .decode(privkey_encoding)
             .unwrap();
         let privkey = PrivateKey::new_from_slice(privkey_serialized.as_slice()).unwrap();
 
-        let transformed_serialized = base64::engine::general_purpose::STANDARD
-            .decode(transformed_encoding)
+        // deserialize encrypted value
+        let cipher_encoding = req_params.cipher_base64;
+        let cipher_serialized = base64::engine::general_purpose::STANDARD
+            .decode(cipher_encoding)
             .unwrap();
-        let transformed_data = EncryptedValue::from_bytes(transformed_serialized).unwrap();
+        let cipher = EncryptedValue::from_bytes(cipher_serialized).unwrap();
 
-        // attempt to reconstruct data from encodings
+        let data_len = req_params.length;
 
-        let decryption = decrypt(&transformed_data, &privkey, data_len as usize).unwrap();
+        let decryption = decrypt(&cipher, &privkey, data_len as usize).unwrap();
         Ok(Response::new(EncodedPayload {
             payload_base64: encode64!(decryption),
         }))

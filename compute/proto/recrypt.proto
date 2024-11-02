@@ -1,9 +1,9 @@
-// proto/rencrypt.proto
+// proto/recrypt.proto
 
 syntax = "proto3";
-package rencrypt;
+package recrypt;
 
-service RencryptOperator {
+service RecryptOperator {
 	rpc GenerateKeyPair(Empty) returns (EncodedKeyPair);
 	rpc Encrypt(EncryptRequest) returns (EncryptReply);
 	rpc GenerateTransformKey(GenerateTransformKeyRequest) returns (EncodedPayload);

@@ -3,8 +3,8 @@ use std::net::SocketAddr;
 use tonic::transport::Server;
 
 use recrypt_compute::grpc::{
-    proto::{self, rencrypt_operator_server::RencryptOperatorServer},
-    rencrypt_operator::Operator,
+    proto::{self, recrypt_operator_server::RecryptOperatorServer},
+    recrypt_operator::Operator,
 };
 
 #[tokio::main]
@@ -21,7 +21,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let server = Server::builder()
         .add_service(reflection_svc)
-        .add_service(RencryptOperatorServer::new(service));
+        .add_service(RecryptOperatorServer::new(service));
     // let bound_server = server
     println!("🚀 gRPC server listening on port: {}", addr.port());
 

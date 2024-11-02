@@ -1,6 +1,6 @@
-pub mod rencrypt_operator;
+pub mod recrypt_operator;
 
 // #[cfg(test)]
 mod tests;
 
-pub use rencrypt_operator::proto;
+pub use recrypt_operator::proto;
