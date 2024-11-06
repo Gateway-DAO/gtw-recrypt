@@ -1,3 +1,6 @@
 [submodule "recrypt"]
 	path = recrypt
 	url = git@github.com:gateway-dao/recrypt-rs
+[submodule "wasm-binding"]
+	path = wasm-binding
+	url = git@github.com:Gateway-DAO/recrypt-wasm-binding.git
