@@ -59,6 +59,12 @@ cargo doc --open
 
 ## Project Structure
 
+Clone the project and its submodules with the following
+
+```
+git submodule update --init --recursive
+```
+
 ```
 .
 ├── Cargo.toml
