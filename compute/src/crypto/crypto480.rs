@@ -1,17 +1,3 @@
-pub mod signature {
-    pub mod ed25519 {
-        use recrypt::{
-            api::SigningKeypair as Ed25519Keypair,
-            api_480::{Ed25519Ops, Recrypt480},
-        };
-
-        pub fn new_signing_keypair() -> Ed25519Keypair {
-            let recrypt = Recrypt480::new();
-            recrypt.generate_ed25519_key_pair()
-        }
-    }
-}
-
 pub mod encryption {
     pub mod aes {
         use aes_gcm::{
@@ -74,7 +60,7 @@ pub mod encryption {
 
         #[cfg(test)]
         mod test {
-            use crate::crypto::encryption::aes::AesKey;
+            use crate::crypto480::encryption::aes::AesKey;
 
             #[test]
             fn aes_encryption() {
@@ -221,7 +207,7 @@ pub mod encryption {
         pub mod test {
             use rand::Rng;
 
-            use crate::crypto::signature::ed25519::new_signing_keypair;
+            use crate::crypto480::signature::ed25519::new_signing_keypair;
 
             use super::{decrypt, encrypt, new_encryption_keypair, new_transform_key, transform};
 

@@ -1,5 +1,5 @@
 use crate::crypto::encryption::recrypt::{
-    decrypt, new_transform_key, pubkey_from_buffer, transform,
+    decrypt, encrypt, new_transform_key, pubkey_from_buffer, transform,
 };
 use crate::crypto::signature::ed25519::*;
 use base64::Engine;
@@ -9,10 +9,7 @@ use proto::{
     DecryptRequest, Empty, EncodedKeyPair, EncodedPayload, EncryptReply, EncryptRequest,
     TransformRequest,
 };
-use recrypt::{
-    api::Hashable,
-    api_480::{EncryptedValue, PrivateKey, TransformKey},
-};
+use recrypt::api::{EncryptedValue, Hashable, PrivateKey, TransformKey};
 use tonic::{Request, Response, Status};
 
 pub mod proto {
@@ -132,7 +129,6 @@ impl RecryptOperator for Operator {
         _req: Request<EncryptRequest>,
     ) -> Result<Response<EncryptReply>, Status> {
         let req = _req.into_inner();
-        use crate::crypto::encryption::recrypt::*;
 
         let pubkey = base64::engine::general_purpose::STANDARD
             .decode(req.pubkey_base64)

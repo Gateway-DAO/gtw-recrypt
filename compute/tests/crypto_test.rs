@@ -2,7 +2,7 @@
 mod tests {
     use base64::Engine;
     use recrypt::api_480::{EncryptedValue, Hashable, PrivateKey, TransformKey};
-    use recrypt_compute::crypto::{
+    use recrypt_compute::crypto480::{
         encryption::{aes::AesKey, recrypt::*},
         signature::ed25519::new_signing_keypair,
     };
