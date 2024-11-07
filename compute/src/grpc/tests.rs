@@ -22,7 +22,7 @@ const _TRANSFORM_KEY_SIZE: usize = _EPHEMERAL_PUBLIC_KEY_SIZE
 #[cfg(test)]
 mod test {
     use base64::Engine;
-    use recrypt::api_480::{EncryptedValue, PrivateKey, TransformKey};
+    use recrypt::api::{EncryptedValue, Hashable, PrivateKey, TransformKey};
 
     #[test]
     fn generate_test_transform_key() {

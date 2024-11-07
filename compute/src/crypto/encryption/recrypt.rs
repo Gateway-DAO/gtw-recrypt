@@ -1,6 +1,6 @@
 use super::aes::AesKey;
 use base64::Engine;
-use gridiron::fp_480::Monty;
+use gridiron::fp_256::Monty;
 pub use recrypt::api::{
     PrivateKey as RecryptPrivateKey, PublicKey as RecryptPublicKey,
     SigningKeypair as Ed25519Keypair,

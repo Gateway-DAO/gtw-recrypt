@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use recrypt_compute::crypto480::{
+use recrypt_compute::crypto::{
     encryption::{aes, recrypt},
     signature::ed25519::new_signing_keypair,
 };
