@@ -1,3 +1,2 @@
 [workspace]
-members = ["recrypt", "compute"]
-exclude = ["wasm-binding"]
+members = ["recrypt", "compute", "wasm-binding"]
